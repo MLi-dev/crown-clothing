@@ -7,6 +7,8 @@ import {
 	SignInFailure,
 	signOutSuccess,
 	signOutFailure,
+	signUpStart,
+	signUpSuccess,
 	signUpFailure,
 } from "./user.actions";
 
@@ -35,22 +37,39 @@ export function* signInWithEmail({ payload: { email, password } }) {
 	}
 }
 
-export function* signUp({ payload: { email, password, confirmPassword } }) {
-	if (password !== confirmPassword) {
-		alert("passwords don't match!");
-		return;
-	}
+// export function* signUp({ payload: { email, password, confirmPassword } }) {
+// 	if (password !== confirmPassword) {
+// 		alert("passwords don't match!");
+// 		return;
+// 	}
+// 	try {
+// 		const { user } = yield auth.createUserWithEmailAndPassword(email, password);
+// 		yield call(getSnapShotFromUserAuth, user);
+// 	} catch (error) {
+// 		put(signUpFailure(error));
+// 	}
+// }
+
+export function* signUp({ payload: { email, password, displayName } }) {
 	try {
 		const { user } = yield auth.createUserWithEmailAndPassword(email, password);
-		yield call(getSnapShotFromUserAuth, user);
+		yield put(signUpSuccess({ user, additionalData: { displayName } }));
 	} catch (error) {
-		put(signUpFailure(error));
+		yield put(signUpFailure(error));
 	}
 }
 
-export function* getSnapShotFromUserAuth(user) {
+export function* signInAfterSignUp({ payload: { user, additionalData } }) {
+	yield getSnapShotFromUserAuth(user, additionalData);
+}
+
+export function* getSnapShotFromUserAuth(userAuth, additionalData) {
 	try {
-		const userRef = yield call(createUserProfileDocument, user);
+		const userRef = yield call(
+			createUserProfileDocument,
+			userAuth,
+			additionalData
+		);
 		const userSnapshot = yield userRef.get();
 		yield put(SignInSuccess({ id: userSnapshot.id, ...userSnapshot.data() }));
 	} catch (error) {
@@ -97,6 +116,10 @@ export function* onSignUpStart() {
 	yield takeLatest(UserActionTypes.SIGN_UP_START, signUp);
 }
 
+export function* onSignUpSuccess() {
+	yield takeLatest(UserActionTypes.SIGN_UP_SUCCESS, signInAfterSignUp);
+}
+
 export function* userSagas() {
 	yield all([
 		call(onGoogleSignInStart),
@@ -104,5 +127,6 @@ export function* userSagas() {
 		call(onCheckUserSession),
 		call(onSignOutStart),
 		call(onSignUpStart),
+		call(onSignUpSuccess),
 	]);
 }
